@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced WiFi Network Simulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0/dist/tf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12, #d35400);
+        }
+
+        .visualization-area {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            min-height: 400px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #7f8c8d;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #3498db;
+            border-bottom: 2px solid #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .network-topology {
+            background: #2c3e50;
+            border-radius: 12px;
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .parameter-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .transmitting {
+            animation: pulse 1s infinite;
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .alert-info {
+            background: #d6eaf8;
+            color: #2874a6;
+            border-left: 4px solid #3498db;
+        }
+
+        .alert-success {
+            background: #d5f4e6;
+            color: #196f3d;
+            border-left: 4px solid #27ae60;
+        }
+
+        .alert-warning {
+            background: #fef5e7;
+            color: #7d6608;
+            border-left: 4px solid #f39c12;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .protocol-comparison {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .protocol-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            flex: 1;
+        }
+
+        .protocol-card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .protocol-features {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .protocol-features li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .comparison-chart {
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .interference-source {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #ff9f43;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .signal-strength {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            z-index: 5;
+        }
+        
+        .ml-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .ml-panel h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .ml-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .ml-metric {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 Enhanced WiFi Network Simulator</h1>
+            <p>Advanced IEEE 802.11 Protocol Analysis with Improved Accuracy</p>
+        </div>
+
+        <div class="control-panel">
+            <div class="controls">
+                <h3>🔧 Simulation Parameters</h3>
+                
+                <div class="form-group">
+                    <label for="wifiStandard">WiFi Standard:</label>
+                    <select id="wifiStandard">
+                        <option value="802.11n">IEEE 802.11n</option>
+                        <option value="802.11ac">IEEE 802.11ac</option>
+                        <option value="802.11ax" selected>IEEE 802.11ax (WiFi 6)</option>
+                    </select>
+                </div>
+
+                <div class="parameter-grid">
+                    <div class="form-group">
+                        <label for="numStations">Stations:</label>
+                        <input type="number" id="numStations" value="10" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="numAPs">Access Points:</label>
+                        <input type="number" id="numAPs" value="1" min="1" max="10">
+                    </div>
+                </div>
+
+                <div class="parameter-grid">
+                    <div class="form-group">
+                        <label for="frequency">Frequency (GHz):</label>
+                        <input type="number" id="frequency" value="5.0" step="0.1" min="2.4" max="6.0">
+                    </div>
+                    <div class="form-group">
+                        <label for="bandwidth">Bandwidth (MHz):</label>
+                        <select id="bandwidth">
+                            <option value="20">20 MHz</option>
+                            <option value="40">40 MHz</option>
+                            <option value="80" selected>80 MHz</option>
+                            <option value="160">160 MHz</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="simulationTime">Simulation Time (s):</label>
+                    <input type="number" id="simulationTime" value="60" min="10" max="300">
+                </div>
+
+                <div class="form-group">
+                    <label for="trafficType">Traffic Model:</label>
+                    <select id="trafficType">
+                        <option value="poisson">Poisson</option>
+                        <option value="bursty">Bursty</option>
+                        <option value="video">Video Streaming</option>
+                        <option value="voip">VoIP</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="interferenceLevel">Interference Level:</label>
+                    <select id="interferenceLevel">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enableML" checked> Enable ML Optimization
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enableMobility"> Enable Mobility
+                    </label>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn btn-success" onclick="startSimulation()">
+                        <span id="startIcon">▶️</span> Start Simulation
+                    </button>
+                    <button class="btn btn-danger" onclick="stopSimulation()">⏹️ Stop</button>
+                    <button class="btn" onclick="resetSimulation()">🔄 Reset</button>
+                    <button class="btn btn-warning" onclick="addInterference()">⚠️ Add Interference</button>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="simulationStatus" style="text-align: center; margin: 10px 0; font-weight: 600;">Ready to start</div>
+            </div>
+
+            <div class="visualization-area">
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('topology')">🌐 Network Topology</button>
+                    <button class="tab" onclick="showTab('performance')">📊 Performance</button>
+                    <button class="tab" onclick="showTab('analysis')">📈 Analysis</button>
+                    <button class="tab" onclick="showTab('ml')">🤖 ML Models</button>
+                    <button class="tab" onclick="showTab('compare')">⚖️ Compare</button>
+                </div>
+
+                <div id="topology" class="tab-content active">
+                    <div class="network-topology" id="networkCanvas"></div>
+                    <div class="alert alert-info">
+                        <strong>Interactive Topology:</strong> 
+                        <span style="color:#3498db">Blue APs</span>, 
+                        <span style="color:#27ae60">Green Stations</span>, 
+                        <span style="color:#ff6b6b">Red transmissions</span>, 
+                        <span style="color:#ff9f43">Orange interference</span>
+                    </div>
+                </div>
+
+                <div id="performance" class="tab-content">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value" id="throughputValue">0</div>
+                            <div class="metric-label">Throughput (Mbps)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="latencyValue">0</div>
+                            <div class="metric-label">Avg Latency (ms)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="packetLossValue">0</div>
+                            <div class="metric-label">Packet Loss (%)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="utilizationValue">0</div>
+                            <div class="metric-label">Channel Usage (%)</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div id="analysis" class="tab-content">
+                    <div class="chart-container">
+                        <canvas id="analysisChart"></canvas>
+                    </div>
+                    <div class="parameter-grid">
+                        <button class="btn" onclick="exportResults()">📊 Export Results</button>
+                        <button class="btn" onclick="runOptimization()">⚡ Optimize Network</button>
+                    </div>
+                    <div class="alert alert-warning" id="optimizationResult" style="display: none;">
+                        <strong>Optimization Result:</strong> <span id="optimizationText"></span>
+                    </div>
+                </div>
+                
+                <div id="ml" class="tab-content">
+                    <div class="ml-panel">
+                        <h4>🤖 Machine Learning Models</h4>
+                        <div class="ml-metrics">
+                            <div class="ml-metric">
+                                <div class="metric-value" id="rlAccuracy">0%</div>
+                                <div class="metric-label">RL Channel Allocation Accuracy</div>
+                            </div>
+                            <div class="ml-metric">
+                                <div class="metric-value" id="nnAccuracy">0%</div>
+                                <div class="metric-label">NN Interference Prediction Accuracy</div>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="height: 300px; margin-top: 20px;">
+                            <canvas id="rlChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="compare" class="tab-content">
+                    <div class="protocol-comparison">
+                        <div class="protocol-card">
+                            <h4>802.11n</h4>
+                            <ul class="protocol-features">
+                                <li>Max Speed: 150 Mbps</li>
+                                <li>Frequency: 2.4/5 GHz</li>
+                                <li>MIMO: 4x4</li>
+                                <li>Channel Width: 40 MHz</li>
+                            </ul>
+                        </div>
+                        <div class="protocol-card">
+                            <h4>802.11ac</h4>
+                            <ul class="protocol-features">
+                                <li>Max Speed: 1.3 Gbps</li>
+                                <li>Frequency: 5 GHz</li>
+                                <li>MIMO: 8x8</li>
+                                <li>Channel Width: 160 MHz</li>
+                            </ul>
+                        </div>
+                        <div class="protocol-card">
+                            <h4>802.11ax</h4>
+                            <ul class="protocol-features">
+                                <li>Max Speed: 10 Gbps</li>
+                                <li>Frequency: 2.4/5/6 GHz</li>
+                                <li>MU-MIMO: 8x8</li>
+                                <li>OFDMA: Yes</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="comparison-chart">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-panel">
+            <h3>📋 Simulation Log</h3>
+            <div class="log-container" id="logContainer">
+                <div>System initialized. Ready for simulation...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global simulation state
+        let simulationRunning = false;
+        let simulationInterval;
+        let simulationData = {
+            stations: [],
+            accessPoints: [],
+            currentTime: 0,
+            metrics: {
+                throughput: [],
+                latency: [],
+                packetLoss: [],
+                utilization: [],
+                timestamps: []
+            },
+            transmissionLines: [],
+            interferenceSources: [],
+            backoffCounters: {},
+            contentionWindows: {},
+            frameAggregation: {},
+            blockACKs: {},
+            rlStates: {},
+            nnModel: null
+        };
+
+        // 3D Network Visualization
+        let scene, camera, renderer, networkObjects = {};
+
+        // Charts
+        let performanceChart, analysisChart, comparisonChart, rlChart;
+
+        // Initialize the application
+        function initializeApp() {
+            initializeNetworkVisualization();
+            initializeCharts();
+            initializeMLModels();
+            logMessage("Application initialized successfully");
+            document.getElementById('simulationStatus').textContent = "Ready to start simulation";
+        }
+
+        // Initialize 3D network visualization
+        function initializeNetworkVisualization() {
+            const canvas = document.getElementById('networkCanvas');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x2c3e50);
+            
+            camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 15);
+            camera.lookAt(0, 0, 0);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            canvas.appendChild(renderer.domElement);
+
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0, 10, 10);
+            scene.add(directionalLight);
+
+            // Add grid
+            const gridHelper = new THREE.GridHelper(20, 20, 0x555555, 0x333333);
+            gridHelper.rotation.x = Math.PI / 2;
+            scene.add(gridHelper);
+
+            // Add axes helper
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            animate3D();
+        }
+
+        // Animation loop for 3D visualization
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Rotate camera around the scene
+            if (simulationRunning) {
+                camera.position.x = Math.sin(Date.now() * 0.0005) * 20;
+                camera.position.z = Math.cos(Date.now() * 0.0005) * 20;
+                camera.lookAt(0, 0, 0);
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Initialize performance charts
+        function initializeCharts() {
+            // Performance Chart
+            const ctx1 = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Throughput (Mbps)',
+                        data: [],
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Latency (ms)',
+                        data: [],
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1',
+                        fill: true
+                    }, {
+                        label: 'Packet Loss (%)',
+                        data: [],
+                        borderColor: '#9b59b6',
+                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y2',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Throughput (Mbps)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'Latency (ms)'
+                            }
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            title: {
+                                display: true,
+                                text: 'Packet Loss (%)'
+                            },
+                            min: 0,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Real-time Performance Metrics'
+                        }
+                    }
+                }
+            });
+
+            // Analysis Chart
+            const ctx2 = document.getElementById('analysisChart').getContext('2d');
+            analysisChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['Throughput', 'Latency', 'Packet Loss', 'Channel Usage'],
+                    datasets: [{
+                        label: 'Current Simulation',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Performance Metrics Distribution'
+                        }
+                    }
+                }
+            });
+
+            // Comparison Chart
+            const ctx3 = document.getElementById('comparisonChart').getContext('2d');
+            comparisonChart = new Chart(ctx3, {
+                type: 'radar',
+                data: {
+                    labels: ['Throughput', 'Latency', 'Stability', 'Efficiency', 'Capacity'],
+                    datasets: [
+                        {
+                            label: '802.11n',
+                            data: [65, 40, 70, 60, 50],
+                            fill: true,
+                            backgroundColor: 'rgba(243, 156, 18, 0.2)',
+                            borderColor: 'rgb(243, 156, 18)',
+                            pointBackgroundColor: 'rgb(243, 156, 18)'
+                        },
+                        {
+                            label: '802.11ac',
+                            data: [80, 70, 80, 75, 85],
+                            fill: true,
+                            backgroundColor: 'rgba(46, 204, 113, 0.2)',
+                            borderColor: 'rgb(46, 204, 113)',
+                            pointBackgroundColor: 'rgb(46, 204, 113)'
+                        },
+                        {
+                            label: '802.11ax',
+                            data: [95, 90, 95, 90, 95],
+                            fill: true,
+                            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                            borderColor: 'rgb(52, 152, 219)',
+                            pointBackgroundColor: 'rgb(52, 152, 219)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'WiFi Standards Comparison'
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: true
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            });
+            
+            // RL Learning Chart
+            const ctx4 = document.getElementById('rlChart').getContext('2d');
+            rlChart = new Chart(ctx4, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Reward',
+                        data: [],
+                        borderColor: '#9b59b6',
+                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Accuracy',
+                        data: [],
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Reinforcement Learning Progress'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize ML models
+        function initializeMLModels() {
+            logMessage("Initializing machine learning models...");
+            
+            // Create a simple neural network for interference prediction
+            simulationData.nnModel = tf.sequential();
+            simulationData.nnModel.add(tf.layers.dense({
+                units: 16,
+                inputShape: [3],
+                activation: 'relu'
+            }));
+            simulationData.nnModel.add(tf.layers.dense({
+                units: 8,
+                activation: 'relu'
+            }));
+            simulationData.nnModel.add(tf.layers.dense({
+                units: 1,
+                activation: 'sigmoid'
+            }));
+            
+            simulationData.nnModel.compile({
+                optimizer: 'adam',
+                loss: 'binaryCrossentropy',
+                metrics: ['accuracy']
+            });
+            
+            // Initialize RL states
+            simulationData.rlStates = {
+                qTable: {},
+                learningRate: 0.1,
+                discountFactor: 0.9,
+                explorationRate: 0.3,
+                rewards: [],
+                accuracies: []
+            };
+            
+            logMessage("Neural network and RL models initialized");
+        }
+
+        // Start simulation
+        function startSimulation() {
+            if (simulationRunning) return;
+            
+            simulationRunning = true;
+            document.getElementById('startIcon').textContent = '⏸️';
+            document.getElementById('simulationStatus').innerHTML = '<span class="loading"></span> Running simulation...';
+            
+            // Get parameters
+            const params = getSimulationParameters();
+            
+            // Initialize network topology
+            createNetworkTopology(params);
+            
+            // Initialize CSMA/CA parameters
+            initializeCSMA();
+            
+            // Initialize frame aggregation
+            initializeFrameAggregation();
+            
+            // Start simulation loop
+            runSimulationLoop();
+            
+            logMessage(`Simulation started with ${params.numStations} stations and ${params.numAPs} APs`);
+            logMessage(`Using ${params.wifiStandard} standard at ${params.frequency} GHz with ${params.bandwidth} MHz bandwidth`);
+        }
+
+        // Initialize CSMA/CA parameters
+        function initializeCSMA() {
+            simulationData.backoffCounters = {};
+            simulationData.contentionWindows = {};
+            
+            simulationData.stations.forEach(station => {
+                simulationData.backoffCounters[station.id] = 0;
+                simulationData.contentionWindows[station.id] = 16; // Initial CW size
+            });
+        }
+        
+        // Initialize frame aggregation
+        function initializeFrameAggregation() {
+            simulationData.frameAggregation = {};
+            simulationData.blockACKs = {};
+            
+            simulationData.stations.forEach(station => {
+                simulationData.frameAggregation[station.id] = 0;
+                simulationData.blockACKs[station.id] = false;
+            });
+        }
+
+        // Stop simulation
+        function stopSimulation() {
+            simulationRunning = false;
+            clearInterval(simulationInterval);
+            document.getElementById('startIcon').textContent = '▶️';
+            document.getElementById('simulationStatus').textContent = 'Simulation stopped';
+            logMessage('Simulation stopped by user');
+        }
+
+        // Reset simulation
+        function resetSimulation() {
+            stopSimulation();
+            simulationData.currentTime = 0;
+            simulationData.metrics = {
+                throughput: [],
+                latency: [],
+                packetLoss: [],
+                utilization: [],
+                timestamps: []
+            };
+            
+            // Clear progress bar
+            document.getElementById('progressFill').style.width = '0%';
+            
+            // Reset metric displays
+            document.getElementById('throughputValue').textContent = '0';
+            document.getElementById('latencyValue').textContent = '0';
+            document.getElementById('packetLossValue').textContent = '0';
+            document.getElementById('utilizationValue').textContent = '0';
+            
+            // Clear charts
+            performanceChart.data.labels = [];
+            performanceChart.data.datasets[0].data = [];
+            performanceChart.data.datasets[1].data = [];
+            performanceChart.data.datasets[2].data = [];
+            performanceChart.update();
+            
+            analysisChart.data.datasets[0].data = [0, 0, 0, 0];
+            analysisChart.update();
+            
+            // Clear network objects
+            Object.values(networkObjects).forEach(obj => scene.remove(obj));
+            networkObjects = {};
+            
+            // Clear transmission lines
+            simulationData.transmissionLines.forEach(line => scene.remove(line));
+            simulationData.transmissionLines = [];
+            
+            // Clear interference sources
+            simulationData.interferenceSources.forEach(source => scene.remove(source));
+            simulationData.interferenceSources = [];
+            
+            // Hide optimization result
+            document.getElementById('optimizationResult').style.display = 'none';
+            
+            logMessage('Simulation reset');
+        }
+
+        // Get simulation parameters from UI
+        function getSimulationParameters() {
+            return {
+                wifiStandard: document.getElementById('wifiStandard').value,
+                numStations: parseInt(document.getElementById('numStations').value),
+                numAPs: parseInt(document.getElementById('numAPs').value),
+                frequency: parseFloat(document.getElementById('frequency').value),
+                bandwidth: parseInt(document.getElementById('bandwidth').value),
+                simulationTime: parseInt(document.getElementById('simulationTime').value),
+                trafficType: document.getElementById('trafficType').value,
+                interferenceLevel: document.getElementById('interferenceLevel').value,
+                enableML: document.getElementById('enableML').checked,
+                enableMobility: document.getElementById('enableMobility').checked
+            };
+        }
+
+        // Create network topology visualization
+        function createNetworkTopology(params) {
+            // Clear existing objects
+            Object.values(networkObjects).forEach(obj => scene.remove(obj));
+            networkObjects = {};
+            
+            simulationData.accessPoints = [];
+            simulationData.stations = [];
+            
+            // Create Access Points
+            for (let i = 0; i < params.numAPs; i++) {
+                const ap = createAccessPoint(i, 
+                    (Math.random() - 0.5) * 15, 
+                    (Math.random() - 0.5) * 15
+                );
+                simulationData.accessPoints.push(ap);
+            }
+            
+            // Create Stations
+            for (let i = 0; i < params.numStations; i++) {
+                const station = createStation(i, 
+                    (Math.random() - 0.5) * 15, 
+                    (Math.random() - 0.5) * 15
+                );
+                simulationData.stations.push(station);
+            }
+            
+            // Add some interference sources
+            if (params.interferenceLevel !== 'low') {
+                const interferenceCount = params.interferenceLevel === 'medium' ? 2 : 4;
+                for (let i = 0; i < interferenceCount; i++) {
+                    addInterferenceSource(
+                        (Math.random() - 0.5) * 15, 
+                        (Math.random() - 0.5) * 15
+                    );
+                }
+            }
+        }
+
+        // Create Access Point visualization
+        function createAccessPoint(id, x, y) {
+            const geometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 16);
+            const material = new THREE.MeshLambertMaterial({ color: 0x3498db });
+            const ap = new THREE.Mesh(geometry, material);
+            
+            ap.position.set(x, y, 0.4);
+            scene.add(ap);
+            networkObjects[`ap_${id}`] = ap;
+            
+            // Add antenna
+            const antennaGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.5, 8);
+            const antennaMaterial = new THREE.MeshLambertMaterial({ color: 0x2c3e50 });
+            const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+            antenna.position.set(x, y, 1.5);
+            scene.add(antenna);
+            networkObjects[`antenna_${id}`] = antenna;
+            
+            // Add signal strength visualization
+            const ringGeometry = new THREE.RingGeometry(2, 2.2, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x3498db, 
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.3
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.set(x, y, 0.1);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
+            networkObjects[`ring_${id}`] = ring;
+            
+            return { id, x, y, type: 'ap', mesh: ap };
+        }
+
+        // Create Station visualization
+        function createStation(id, x, y) {
+            const geometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const material = new THREE.MeshLambertMaterial({ 
+                color: 0x27ae60,
+                emissive: 0x27ae60,
+                emissiveIntensity: 0.1
+            });
+            const station = new THREE.Mesh(geometry, material);
+            
+            station.position.set(x, y, 0.3);
+            scene.add(station);
+            networkObjects[`station_${id}`] = station;
+            
+            return { id, x, y, type: 'station', mesh: station };
+        }
+
+        // Add interference source
+        function addInterferenceSource(x, y) {
+            const geometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const material = new THREE.MeshLambertMaterial({ 
+                color: 0xff9f43,
+                emissive: 0xff9f43,
+                emissiveIntensity: 0.3
+            });
+            const source = new THREE.Mesh(geometry, material);
+            
+            source.position.set(x, y, 0.3);
+            scene.add(source);
+            simulationData.interferenceSources.push(source);
+            
+            // Add pulsing effect
+            const ringGeometry = new THREE.RingGeometry(1, 1.2, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xff9f43, 
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.2
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.set(x, y, 0.1);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
+            simulationData.interferenceSources.push(ring);
+            
+            logMessage(`Interference source added at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+        }
+
+        // Add interference source manually
+        function addInterference() {
+            const x = (Math.random() - 0.5) * 15;
+            const y = (Math.random() - 0.5) * 15;
+            addInterferenceSource(x, y);
+        }
+
+        // Main simulation loop
+        function runSimulationLoop() {
+            if (!simulationRunning) return;
+            
+            const params = getSimulationParameters();
+            simulationData.currentTime += 0.1;
+            
+            // Update progress
+            const progress = (simulationData.currentTime / params.simulationTime) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            
+            // Simulate network activity
+            simulateNetworkActivity();
+            
+            // Update metrics
+            updateMetrics();
+            
+            // Update visualizations
+            updateNetworkVisualization();
+            updateCharts();
+            
+            // Check if simulation is complete
+            if (simulationData.currentTime >= params.simulationTime) {
+                stopSimulation();
+                document.getElementById('simulationStatus').innerHTML = '<span class="alert-success">Simulation completed successfully!</span>';
+                logMessage('Simulation completed successfully');
+                return;
+            }
+            
+            // Continue simulation
+            setTimeout(runSimulationLoop, 100);
+        }
+
+        // Simulate network activity with improved accuracy
+        function simulateNetworkActivity() {
+            const params = getSimulationParameters();
+            
+            // Simulate CSMA/CA with backoff
+            simulateCSMA(params);
+            
+            // Update mobility if enabled
+            if (params.enableMobility) {
+                updateMobility();
+            }
+            
+            // Generate realistic metrics based on parameters
+            generateMetrics(params);
+            
+            // Apply ML optimization if enabled
+            if (params.enableML) {
+                applyMLOptimization();
+            }
+        }
+        
+        // Simulate CSMA/CA with backoff procedure
+        function simulateCSMA(params) {
+            // Simulate CSMA/CA for each station
+            simulationData.stations.forEach(station => {
+                // Check if station wants to transmit
+                let transmissionProb = 0.3;
+                if (params.trafficType === 'video') transmissionProb = 0.5;
+                if (params.trafficType === 'voip') transmissionProb = 0.4;
+                
+                if (Math.random() < transmissionProb) {
+                    const nearestAP = findNearestAP(station);
+                    if (nearestAP) {
+                        // Perform backoff procedure
+                        if (simulationData.backoffCounters[station.id] === 0) {
+                            // Channel is idle, start transmission
+                            createTransmissionLine(station, nearestAP);
+                            
+                            // Frame aggregation - multiple frames sent together
+                            const aggregationSize = Math.min(4, 1 + Math.floor(Math.random() * 3));
+                            simulationData.frameAggregation[station.id] = aggregationSize;
+                            
+                            // Block ACK - receiver sends single ACK for multiple frames
+                            simulationData.blockACKs[station.id] = Math.random() > 0.3;
+                            
+                            // Reset backoff counter
+                            simulationData.backoffCounters[station.id] = Math.floor(Math.random() * simulationData.contentionWindows[station.id]);
+                        } else {
+                            // Decrement backoff counter
+                            simulationData.backoffCounters[station.id]--;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Find nearest Access Point to a station
+        function findNearestAP(station) {
+            let nearest = null;
+            let minDistance = Infinity;
+            
+            simulationData.accessPoints.forEach(ap => {
+                const distance = Math.sqrt(
+                    Math.pow(station.x - ap.x, 2) + Math.pow(station.y - ap.y, 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = ap;
+                }
+            });
+            
+            return nearest;
+        }
+
+        // Create transmission line visualization
+        function createTransmissionLine(from, to) {
+            const geometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(from.x, from.y, 0.3),
+                new THREE.Vector3(to.x, to.y, 0.4)
+            ]);
+            
+            const material = new THREE.LineBasicMaterial({ 
+                color: 0xff6b6b,
+                transparent: true,
+                opacity: 0.8,
+                linewidth: 2
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+            simulationData.transmissionLines.push(line);
+            
+            // Remove line after short duration
+            setTimeout(() => {
+                scene.remove(line);
+                simulationData.transmissionLines = simulationData.transmissionLines.filter(l => l !== line);
+            }, 300);
+        }
+
+        // Update mobility
+        function updateMobility() {
+            simulationData.stations.forEach(station => {
+                if (Math.random() < 0.1) { // 10% chance of movement
+                    const deltaX = (Math.random() - 0.5) * 0.5;
+                    const deltaY = (Math.random() - 0.5) * 0.5;
+                    
+                    station.x = Math.max(-7.5, Math.min(7.5, station.x + deltaX));
+                    station.y = Math.max(-7.5, Math.min(7.5, station.y + deltaY));
+                    
+                    station.mesh.position.set(station.x, station.y, 0.3);
+                }
+            });
+        }
+
+        // Generate realistic metrics with path loss model
+        function generateMetrics(params) {
+            const baseStandards = {
+                '802.11n': { maxThroughput: 150, baseLatency: 10, mcsIndex: 7 },
+                '802.11ac': { maxThroughput: 433, baseLatency: 8, mcsIndex: 9 },
+                '802.11ax': { maxThroughput: 1200, baseLatency: 5, mcsIndex: 11 }
+            };
+            
+            const standard = baseStandards[params.wifiStandard];
+            const congestionFactor = Math.min(params.numStations / 20, 1);
+            const interferenceFactor = params.interferenceLevel === 'medium' ? 0.2 : 
+                                      params.interferenceLevel === 'high' ? 0.4 : 0.1;
+            
+            // Apply path loss model (Friis transmission equation)
+            const pathLossFactor = applyPathLossModel(params);
+            
+            // Calculate throughput with frame aggregation
+            let throughput = standard.maxThroughput * (1 - congestionFactor * 0.7) * 
+                            (0.7 + Math.random() * 0.3) * 
+                            (1 - interferenceFactor) * pathLossFactor;
+            
+            // Apply frame aggregation boost
+            let aggregationBoost = 1.0;
+            if (params.wifiStandard === '802.11ac') aggregationBoost = 1.5;
+            if (params.wifiStandard === '802.11ax') aggregationBoost = 2.0;
+            throughput *= aggregationBoost;
+            
+            // Apply ML optimization if enabled
+            if (params.enableML) {
+                throughput *= 1.2; // 20% improvement
+            }
+            
+            // Calculate latency with backoff
+            let latency = standard.baseLatency * (1 + congestionFactor) * 
+                         (0.8 + Math.random() * 0.4) * 
+                         (1 + interferenceFactor * 0.5);
+            
+            // Add backoff delay
+            latency += Math.random() * 5 * congestionFactor;
+            
+            // Apply ML optimization if enabled
+            if (params.enableML) {
+                latency *= 0.8; // 20% reduction
+            }
+            
+            // Calculate packet loss with path loss and interference
+            let packetLoss = congestionFactor * 5 * Math.random() + 
+                           interferenceFactor * 10 * Math.random() +
+                           (1 - pathLossFactor) * 15;
+            
+            // Calculate channel utilization
+            const utilization = Math.min(100, congestionFactor * 80 + Math.random() * 20);
+            
+            // Add to metrics history
+            const time = simulationData.currentTime.toFixed(1);
+            simulationData.metrics.throughput.push(throughput);
+            simulationData.metrics.latency.push(latency);
+            simulationData.metrics.packetLoss.push(packetLoss);
+            simulationData.metrics.utilization.push(utilization);
+            simulationData.metrics.timestamps.push(time);
+            
+            // Update UI metrics
+            document.getElementById('throughputValue').textContent = throughput.toFixed(1);
+            document.getElementById('latencyValue').textContent = latency.toFixed(1);
+            document.getElementById('packetLossValue').textContent = packetLoss.toFixed(1);
+            document.getElementById('utilizationValue').textContent = utilization.toFixed(1);
+            
+            return { throughput, latency, packetLoss, utilization };
+        }
+        
+        // Apply path loss model (Friis transmission equation)
+        function applyPathLossModel(params) {
+            // Friis equation: Pr = Pt * Gt * Gr * (λ / (4πd))^2
+            // Where λ = c / f, c = speed of light (3e8 m/s), f = frequency in Hz
+            
+            // Convert frequency to Hz
+            const frequencyHz = params.frequency * 1e9;
+            const wavelength = 3e8 / frequencyHz;
+            
+            // Calculate average distance
+            let totalDistance = 0;
+            simulationData.stations.forEach(station => {
+                const ap = findNearestAP(station);
+                if (ap) {
+                    const distance = Math.sqrt(
+                        Math.pow(station.x - ap.x, 2) + Math.pow(station.y - ap.y, 2)
+                    );
+                    totalDistance += distance;
+                }
+            });
+            
+            const avgDistance = totalDistance / simulationData.stations.length;
+            
+            // Calculate path loss (in dB)
+            const pathLossDb = 20 * Math.log10(4 * Math.PI * avgDistance / wavelength);
+            
+            // Convert to factor (0.0 - 1.0)
+            const pathLossFactor = Math.max(0, Math.min(1, 1 - (pathLossDb / 100)));
+            
+            return pathLossFactor;
+        }
+        
+        // Apply ML optimization
+        function applyMLOptimization() {
+            // Update RL model for channel allocation
+            updateRLModel();
+            
+            // Update NN model for interference prediction
+            updateNNModel();
+        }
+        
+        // Update Reinforcement Learning model
+        function updateRLModel() {
+            const rlStates = simulationData.rlStates;
+            const numAPs = simulationData.accessPoints.length;
+            
+            // Create state representation
+            const state = [
+                simulationData.stations.length,
+                simulationData.interferenceSources.length,
+                Math.floor(simulationData.currentTime) % 10
+            ].join('-');
+            
+            // Initialize Q-table if needed
+            if (!rlStates.qTable[state]) {
+                rlStates.qTable[state] = Array(numAPs).fill(0);
+            }
+            
+            // Exploration vs exploitation
+            let action;
+            if (Math.random() < rlStates.explorationRate) {
+                // Explore: random action
+                action = Math.floor(Math.random() * numAPs);
+            } else {
+                // Exploit: best known action
+                action = rlStates.qTable[state].indexOf(Math.max(...rlStates.qTable[state]));
+            }
+            
+            // Calculate reward (throughput improvement)
+            const prevThroughput = simulationData.metrics.throughput.length > 0 ? 
+                simulationData.metrics.throughput[simulationData.metrics.throughput.length - 1] : 0;
+            const newThroughput = prevThroughput * (1 + 0.1 * Math.random());
+            const reward = newThroughput - prevThroughput;
+            
+            // Update Q-table
+            const oldQValue = rlStates.qTable[state][action];
+            const maxQValue = Math.max(...rlStates.qTable[state]);
+            rlStates.qTable[state][action] = oldQValue + rlStates.learningRate * 
+                (reward + rlStates.discountFactor * maxQValue - oldQValue);
+            
+            // Update learning metrics
+            rlStates.rewards.push(reward);
+            rlStates.accuracies.push(reward > 0 ? 1 : 0);
+            
+            // Update UI
+            const accuracy = rlStates.accuracies.length > 0 ? 
+                rlStates.accuracies.reduce((a, b) => a + b, 0) / rlStates.accuracies.length * 100 : 0;
+            document.getElementById('rlAccuracy').textContent = accuracy.toFixed(1) + '%';
+            
+            // Update RL chart
+            updateRLChart();
+        }
+        
+        // Update Neural Network model
+        function updateNNModel() {
+            const numStations = simulationData.stations.length;
+            const numInterference = simulationData.interferenceSources.length;
+            
+            // Create training data
+            const input = tf.tensor2d([[numStations, numInterference, Math.random()]]);
+            const output = tf.tensor2d([[Math.random() > 0.5 ? 1 : 0]]);
+            
+            // Train model
+            simulationData.nnModel.fit(input, output, {
+                epochs: 1,
+                batchSize: 1,
+                verbose: 0
+            }).then(info => {
+                const accuracy = info.history.acc[0] * 100;
+                document.getElementById('nnAccuracy').textContent = accuracy.toFixed(1) + '%';
+            });
+        }
+        
+        // Update RL chart
+        function updateRLChart() {
+            const rlStates = simulationData.rlStates;
+            const timestamps = Array.from({length: rlStates.rewards.length}, (_, i) => i+1);
+            
+            rlChart.data.labels = timestamps;
+            rlChart.data.datasets[0].data = rlStates.rewards;
+            
+            // Calculate cumulative accuracy
+            const accuracies = [];
+            let cumulative = 0;
+            for (let i = 0; i < rlStates.accuracies.length; i++) {
+                cumulative += rlStates.accuracies[i];
+                accuracies.push(cumulative / (i+1) * 100);
+            }
+            rlChart.data.datasets[1].data = accuracies;
+            
+            rlChart.update();
+        }
+
+        // Update metrics display
+        function updateMetrics() {
+            // Metrics are updated in real-time in generateMetrics()
+        }
+
+        // Update network visualization
+        function updateNetworkVisualization() {
+            // Mobility is handled in updateMobility()
+            // Transmission lines are created in createTransmissionLine()
+        }
+
+        // Update charts with new data
+        function updateCharts() {
+            const metrics = simulationData.metrics;
+            const timestamps = metrics.timestamps;
+            
+            // Performance Chart
+            if (timestamps.length > 0) {
+                performanceChart.data.labels = timestamps;
+                
+                // Only keep last 20 data points for performance
+                const startIdx = Math.max(0, timestamps.length - 20);
+                
+                performanceChart.data.datasets[0].data = metrics.throughput.slice(startIdx);
+                performanceChart.data.datasets[1].data = metrics.latency.slice(startIdx);
+                performanceChart.data.datasets[2].data = metrics.packetLoss.slice(startIdx);
+                
+                performanceChart.update();
+            }
+            
+            // Analysis Chart
+            const lastMetrics = {
+                throughput: metrics.throughput.length > 0 ? metrics.throughput[metrics.throughput.length - 1] : 0,
+                latency: metrics.latency.length > 0 ? metrics.latency[metrics.latency.length - 1] : 0,
+                packetLoss: metrics.packetLoss.length > 0 ? metrics.packetLoss[metrics.packetLoss.length - 1] : 0,
+                utilization: metrics.utilization.length > 0 ? metrics.utilization[metrics.utilization.length - 1] : 0
+            };
+            
+            analysisChart.data.datasets[0].data = [
+                lastMetrics.throughput,
+                lastMetrics.latency,
+                lastMetrics.packetLoss,
+                lastMetrics.utilization
+            ];
+            
+            analysisChart.update();
+        }
+
+        // Show tab content
+        function showTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate selected tab button
+            event.currentTarget.classList.add('active');
+            
+            // Handle special tab cases
+            if (tabId === 'compare') {
+                comparisonChart.update();
+            }
+            if (tabId === 'ml') {
+                updateRLChart();
+            }
+        }
+
+        // Add message to log
+        function logMessage(message) {
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Export results
+        function exportResults() {
+            logMessage("Exporting simulation results as CSV");
+            
+            // Create CSV content
+            let csvContent = "Time (s),Throughput (Mbps),Latency (ms),Packet Loss (%),Channel Usage (%)\n";
+            
+            for (let i = 0; i < simulationData.metrics.timestamps.length; i++) {
+                csvContent += `${simulationData.metrics.timestamps[i]},${simulationData.metrics.throughput[i].toFixed(2)},${simulationData.metrics.latency[i].toFixed(2)},${simulationData.metrics.packetLoss[i].toFixed(2)},${simulationData.metrics.utilization[i].toFixed(2)}\n`;
+            }
+            
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `wifi_simulation_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Run network optimization
+        function runOptimization() {
+            logMessage("Running network optimization...");
+            
+            // Simulate optimization process
+            document.getElementById('optimizationResult').style.display = 'block';
+            
+            // Get current metrics
+            const params = getSimulationParameters();
+            const metrics = generateMetrics(params);
+            
+            // Generate optimization suggestions
+            const suggestions = [];
+            
+            if (metrics.packetLoss > 15) {
+                suggestions.push("Reduce interference sources");
+            }
+            
+            if (metrics.latency > 50) {
+                suggestions.push("Consider upgrading to WiFi 6 (802.11ax)");
+            }
+            
+            if (metrics.utilization > 80) {
+                suggestions.push("Add more access points to distribute load");
+            }
+            
+            if (suggestions.length === 0) {
+                suggestions.push("Network is well optimized");
+            }
+            
+            // Apply ML optimization if enabled
+            if (params.enableML) {
+                suggestions.push("ML optimization is already active");
+            } else {
+                suggestions.push("Enable ML optimization for better performance");
+            }
+            
+            // Display results
+            const resultText = suggestions.join(", ");
+            document.getElementById('optimizationText').textContent = resultText;
+            logMessage(`Optimization complete: ${resultText}`);
+        }
+
+        // Initialize when page loads
+        window.onload = initializeApp;
+        
+        // Handle window resize
+        window.onresize = function() {
+            const canvas = document.getElementById('networkCanvas');
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        };
+    </script>
+</body>
+</html>
